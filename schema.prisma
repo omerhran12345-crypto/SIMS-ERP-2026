@@ -1,0 +1,122 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+
+enum Sector { pharmacy factory doctor citizen }
+enum Role { admin cashier warehouse_manager sales_manager doctor citizen }
+enum MovementType { PURCHASE SALE ADJUSTMENT_IN ADJUSTMENT_OUT RETURN_IN RETURN_OUT }
+enum ApprovalStatus { PENDING APPROVED REJECTED }
+enum PaymentMethod { CASH CARD TRANSFER CREDIT }
+
+model Organization {
+ id String @id @default(cuid())
+ name String
+ currency String @default("SDG")
+ timezone String @default("Africa/Khartoum")
+ createdAt DateTime @default(now())
+ users User[]
+ products Product[]
+ suppliers Supplier[]
+ customers Customer[]
+ sales Sale[]
+ purchases Purchase[]
+ movements StockMovement[]
+ approvals Approval[]
+ auditLogs AuditLog[]
+}
+model User {
+ id String @id @default(cuid())
+ email String @unique
+ passwordHash String
+ name String
+ role Role
+ sector Sector
+ active Boolean @default(true)
+ orgId String
+ org Organization @relation(fields:[orgId],references:[id],onDelete:Cascade)
+ createdAt DateTime @default(now())
+ movements StockMovement[]
+ sales Sale[]
+ purchases Purchase[]
+ auditLogs AuditLog[]
+ @@index([orgId,sector])
+}
+model Product {
+ id String @id @default(cuid())
+ sku String
+ barcode String?
+ name String
+ sector Sector
+ qty Int @default(0)
+ minQty Int @default(0)
+ reorderQty Int @default(0)
+ buyPrice Decimal @db.Decimal(14,2)
+ sellPrice Decimal @db.Decimal(14,2)
+ unit String @default("وحدة")
+ production DateTime?
+ expiry DateTime?
+ active Boolean @default(true)
+ orgId String
+ org Organization @relation(fields:[orgId],references:[id],onDelete:Cascade)
+ movements StockMovement[]
+ saleItems SaleItem[]
+ purchaseItems PurchaseItem[]
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@unique([orgId,sku])
+ @@index([orgId,sector])
+ @@index([orgId,barcode])
+}
+model Supplier { id String @id @default(cuid()); name String; phone String?; email String?; address String?; orgId String; org Organization @relation(fields:[orgId],references:[id],onDelete:Cascade); purchases Purchase[]; createdAt DateTime @default(now()); @@index([orgId]) }
+model Customer { id String @id @default(cuid()); name String; phone String?; email String?; address String?; orgId String; org Organization @relation(fields:[orgId],references:[id],onDelete:Cascade); sales Sale[]; createdAt DateTime @default(now()); @@index([orgId]) }
+model StockMovement {
+ id String @id @default(cuid())
+ type MovementType
+ qty Int
+ unitPrice Decimal @db.Decimal(14,2)
+ note String?
+ productId String
+ product Product @relation(fields:[productId],references:[id],onDelete:Cascade)
+ userId String
+ user User @relation(fields:[userId],references:[id])
+ orgId String
+ org Organization @relation(fields:[orgId],references:[id],onDelete:Cascade)
+ createdAt DateTime @default(now())
+ @@index([orgId,createdAt])
+}
+model Sale {
+ id String @id @default(cuid())
+ invoiceNo String
+ total Decimal @db.Decimal(14,2)
+ discount Decimal @default(0) @db.Decimal(14,2)
+ payment PaymentMethod @default(CASH)
+ customerId String?
+ customer Customer? @relation(fields:[customerId],references:[id])
+ cashierId String
+ cashier User @relation(fields:[cashierId],references:[id])
+ orgId String
+ org Organization @relation(fields:[orgId],references:[id],onDelete:Cascade)
+ items SaleItem[]
+ createdAt DateTime @default(now())
+ @@unique([orgId,invoiceNo])
+ @@index([orgId,createdAt])
+}
+model SaleItem { id String @id @default(cuid()); qty Int; unitPrice Decimal @db.Decimal(14,2); saleId String; sale Sale @relation(fields:[saleId],references:[id],onDelete:Cascade); productId String; product Product @relation(fields:[productId],references:[id]) }
+model Purchase {
+ id String @id @default(cuid())
+ invoiceNo String
+ supplierId String?
+ supplier Supplier? @relation(fields:[supplierId],references:[id])
+ total Decimal @db.Decimal(14,2)
+ payment PaymentMethod @default(CASH)
+ receivedById String
+ receivedBy User @relation(fields:[receivedById],references:[id])
+ orgId String
+ org Organization @relation(fields:[orgId],references:[id],onDelete:Cascade)
+ items PurchaseItem[]
+ createdAt DateTime @default(now())
+ @@unique([orgId,invoiceNo])
+ @@index([orgId,createdAt])
+}
+model PurchaseItem { id String @id @default(cuid()); qty Int; unitPrice Decimal @db.Decimal(14,2); purchaseId String; purchase Purchase @relation(fields:[purchaseId],references:[id],onDelete:Cascade); productId String; product Product @relation(fields:[productId],references:[id]) }
+model Approval { id String @id @default(cuid()); title String; note String?; status ApprovalStatus @default(PENDING); createdBy String; orgId String; org Organization @relation(fields:[orgId],references:[id],onDelete:Cascade); createdAt DateTime @default(now()); updatedAt DateTime @updatedAt; @@index([orgId,status]) }
+model AuditLog { id String @id @default(cuid()); action String; entity String; entityId String?; metadata Json?; userId String; user User @relation(fields:[userId],references:[id]); orgId String; org Organization @relation(fields:[orgId],references:[id],onDelete:Cascade); createdAt DateTime @default(now()); @@index([orgId,createdAt]) }

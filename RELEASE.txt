@@ -1,0 +1,6 @@
+SIMS Enterprise v2.0.0
+Build type: Full-Stack source release
+Database: PostgreSQL 16 + Prisma
+Backend: Node.js 22 + Express 5 + TypeScript
+Frontend: React 19 + Vite + TypeScript + PWA
+Security: Helmet, CORS allowlist, JWT, bcrypt, rate limiting, Zod validation, audit logs
